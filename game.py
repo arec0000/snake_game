@@ -21,12 +21,19 @@ class Game:
         self.food_manager = FoodManager(
             (5, 5, config.WINDOW_WIDTH - 10, config.WINDOW_HEIGHT - 10),
             int(config.SIZE / 2),
-            3
+            config.APPLES_QUANTITY
         )
         pg.display.set_caption('Snake')
         pg.init()
         self.font = pg.font.Font('Montserrat-Medium.ttf', 18)
-        self.game_over_font = pg.font.Font('Montserrat-Medium.ttf', 30)
+        self.collect_sound = pg.mixer.Sound('sound/collect.mp3')
+        self.game_over_sound = pg.mixer.Sound('sound/gameOver.wav')
+        self.music = ('sound/track1.mp3', 'sound/track2.mp3', 'sound/track3.mp3', 'sound/track4.mp3')
+        self.music_end_event = pg.USEREVENT + 1
+        pg.mixer.music.set_endevent(self.music_end_event)
+        pg.mixer.music.load(self.music[0])
+        pg.mixer.music.play()
+        self.music_track = 1
     
     def render_score(self):
         score = self.font.render(f'score: {self.snake.length - 1}', 1, (255, 135, 68))
@@ -50,6 +57,10 @@ class Game:
                     self.snake.set_direction('down')
                 if event.key == ord('d'):
                     self.snake.set_direction('right')
+            elif event.type == self.music_end_event:
+                pg.mixer.music.load(self.music[self.music_track])
+                pg.mixer.music.play()
+                self.music_track = self.music_track + 1 if self.music_track < 3 else 0
             elif event.type == pg.QUIT:
                 exit()
 
@@ -65,6 +76,7 @@ class Game:
             if self.check_collision(self.snake.collision_box, apple.collision_box):
                 self.food_manager.rnd_apple_state(apple)
                 self.snake.grow()
+                self.collect_sound.play()
 
     def check_tail_collision(self):
         if self.snake.length != len(set(self.snake.list)):
@@ -79,11 +91,24 @@ class Game:
         if top_side or right_side or bottom_side or left_side:
             self.game_over()
 
-    def game_over(self):
-        text = self.game_over_font.render('Game Over', 1, (234, 83, 62))
+    def screen_filter(self):
+        sc_filter = pg.Surface((config.WINDOW_WIDTH, config.WINDOW_HEIGHT))
+        sc_filter.set_alpha(48)
+        sc_filter.fill((67, 75, 96))
+        self.sc.blit(sc_filter, (0, 0))
+
+    def render_game_over_text(self):
+        game_over_font = pg.font.Font('Montserrat-Medium.ttf', 30)
+        text = game_over_font.render('Game Over', 1, (234, 83, 62))
         rect = text.get_rect(center=(config.WINDOW_WIDTH / 2, config.WINDOW_HEIGHT / 2))
         self.sc.blit(text, rect)
         pg.display.update()
+            
+    def game_over(self):
+        self.screen_filter()
+        self.game_over_sound.play()
+        pg.mixer.music.pause()
+        self.render_game_over_text()
         while True:
             for event in pg.event.get():
                 if event.type == pg.QUIT:
